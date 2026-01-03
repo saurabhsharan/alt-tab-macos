@@ -373,6 +373,8 @@ class TileView: FlippedView {
             return appName ?? ""
         } else if Preferences.showTitles == .appNameAndWindowTitle {
             return [appName, windowTitle].compactMap { $0 }.joined(separator: " - ")
+        } else if Preferences.showTitles == .windowTitleAndAppName {
+            return [windowTitle, appName].compactMap { $0 }.joined(separator: " - ")
         }
         return windowTitle ?? ""
     }
