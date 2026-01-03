@@ -19,7 +19,7 @@ class Appearance {
     static let maxHeightOnScreen = CGFloat(0.8)
     static let interCellPadding = CGFloat(1)
     static let intraCellPadding = CGFloat(5)
-    static let appIconLabelSpacing = CGFloat(2)
+    static var appIconLabelSpacing = CGFloat(2)
 
     // theme
     static var fontColor = NSColor.red
@@ -83,6 +83,7 @@ class Appearance {
         windowCornerRadius = 23
         cellCornerRadius = 10
         edgeInsetsSize = 12
+        appIconLabelSpacing = 2
         if #available(macOS 26.0, *) {
             windowPadding = 28
             windowCornerRadius = 43
@@ -112,6 +113,7 @@ class Appearance {
         windowCornerRadius = 23
         cellCornerRadius = 10
         edgeInsetsSize = 5
+        appIconLabelSpacing = 2
         if #available(macOS 26.0, *) {
             edgeInsetsSize = 6
         }
@@ -150,6 +152,7 @@ class Appearance {
         windowCornerRadius = 23
         cellCornerRadius = 10
         edgeInsetsSize = 7
+        appIconLabelSpacing = 2
         windowMinWidthInRow = 0.6
         windowMaxWidthInRow = 0.9
         rowsCount = 1
@@ -163,6 +166,7 @@ class Appearance {
             case .large:
                 iconSize = 30
                 fontHeight = 16
+                appIconLabelSpacing = 8
         }
     }
 
