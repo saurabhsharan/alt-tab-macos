@@ -70,7 +70,7 @@ class ATShortcut {
     }
 
     func executeAction(_ isARepeat: Bool) {
-        Logger.info("executeAction", id)
+        Logger.info { self.id }
         ATShortcut.lastEventIsARepeat = isARepeat
         ControlsTab.executeAction(id)
     }
@@ -95,7 +95,7 @@ class ATShortcut {
         }
         if state == .up {
             // ensure timers don't keep running if their shortcut is UP
-            KeyRepeatTimer.deactivateTimerForRepeatingKey(id)
+            KeyRepeatTimer.stopTimerForRepeatingKey(id)
         }
     }
 }

@@ -50,15 +50,15 @@ class ControlsTab {
 }
 
 class KeyRepeatTimer {
-    static func deactivateTimerForRepeatingKey(_ shortcutName: String) {
+    static func stopTimerForRepeatingKey(_ shortcutName: String) {
     }
 }
 
 class Logger {
-    static func debug(_ items: Any?..., file: String = #file, function: String = #function, line: Int = #line, context: Any? = nil) {}
-    static func info(_ items: Any?..., file: String = #file, function: String = #function, line: Int = #line, context: Any? = nil) {}
-    static func warning(_ items: Any?..., file: String = #file, function: String = #function, line: Int = #line, context: Any? = nil) {}
-    static func error(_ items: Any?..., file: String = #file, function: String = #function, line: Int = #line, context: Any? = nil) {}
+    static func debug(_ message: @escaping () -> Any?, file: String = #file, function: String = #function, line: Int = #line, context: Any? = nil) {}
+    static func info(_ message: @escaping () -> Any?, file: String = #file, function: String = #function, line: Int = #line, context: Any? = nil) {}
+    static func warning(_ message: @escaping () -> Any?, file: String = #file, function: String = #function, line: Int = #line, context: Any? = nil) {}
+    static func error(_ message: @escaping () -> Any?, file: String = #file, function: String = #function, line: Int = #line, context: Any? = nil) {}
 }
 
 class Preferences {

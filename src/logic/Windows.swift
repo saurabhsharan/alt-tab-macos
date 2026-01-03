@@ -74,7 +74,7 @@ class Windows {
     static func updateIsFullscreenOnCurrentSpace() {
         let windowsOnCurrentSpace = Windows.list.filter { !$0.isWindowlessApp }
         for window in windowsOnCurrentSpace {
-            AXUIElement.retryAxCallUntilTimeout(context: window.debugId, after: .now() + humanPerceptionDelay, callType: .updateWindow) { [weak window] in
+            AXUIElement.retryAxCallUntilTimeout(context: window.debugId(), after: .now() + humanPerceptionDelay, callType: .updateWindow) { [weak window] in
                 guard let window else { return }
                 try AccessibilityEvents.updateWindowSizeAndPositionAndFullscreen(window.axUiElement!, window.cgWindowId!, window)
             }
@@ -131,7 +131,21 @@ class Windows {
         }
     }
 
-    static func removeAndUpdateFocus(_ window: Window) {
+    static func removeWindow(_ index: Int, _ pid: pid_t) {
+        let window = Windows.list[index]
+        removeAndUpdateFocus(window)
+        if window.application.addWindowlessWindowIfNeeded() != nil {
+            Applications.find(pid)?.focusedWindow = nil
+        }
+        if Windows.list.count > 0 {
+            moveFocusedWindowIndexAfterWindowDestroyedInBackground(index)
+            App.app.refreshOpenUi([], .refreshUiAfterExternalEvent, windowRemoved: true)
+        } else {
+            App.app.hideUi()
+        }
+    }
+
+    private static func removeAndUpdateFocus(_ window: Window) {
         let removedWindowOldFocusOrder = window.lastFocusOrder
         list.removeAll {
             if $0.lastFocusOrder == removedWindowOldFocusOrder {
@@ -225,7 +239,7 @@ class Windows {
         let nextIndex = windowIndexAfterCycling(step)
         // don't wrap-around at the end, if key-repeat
         if (((step > 0 && nextIndex < focusedWindowIndex) || (step < 0 && nextIndex > focusedWindowIndex)) &&
-            (!allowWrap || ATShortcut.lastEventIsARepeat || KeyRepeatTimer.timer?.isValid ?? false))
+            (!allowWrap || ATShortcut.lastEventIsARepeat || !KeyRepeatTimer.timerIsSuspended))
                // don't cycle to another row, if !allowWrap
                || (!allowWrap && list[nextIndex].rowIndex != list[focusedWindowIndex].rowIndex) {
             return
@@ -245,7 +259,7 @@ class Windows {
         return targetIndex
     }
 
-    static func moveFocusedWindowIndexAfterWindowDestroyedInBackground(_ index: Int) {
+    private static func moveFocusedWindowIndexAfterWindowDestroyedInBackground(_ index: Int) {
         if index < focusedWindowIndex {
             cycleFocusedWindowIndex(-1)
         }
@@ -314,8 +328,8 @@ class Windows {
     }
 
     // dispatch screenshot requests off the main-thread, then wait for completion
-    static func refreshThumbnailsAsync(_ windows: [Window], _ source: RefreshCausedBy) {
-        guard !windows.isEmpty && ScreenRecordingPermission.status == .granted
+    static func refreshThumbnailsAsync(_ windows: [Window], _ source: RefreshCausedBy, windowRemoved: Bool = false) {
+        guard (!windows.isEmpty || windowRemoved) && ScreenRecordingPermission.status == .granted
                && !Preferences.onlyShowApplications()
                && (!Appearance.hideThumbnails || Preferences.previewFocusedWindow) else { return }
         var eligibleWindows = [Window]()
@@ -324,7 +338,7 @@ class Windows {
                 eligibleWindows.append(window)
             }
         }
-        if eligibleWindows.isEmpty { return }
+        guard (!eligibleWindows.isEmpty || windowRemoved) else { return }
         screenshotEligibleWindowsAndUpdateUi(eligibleWindows, source)
     }
 

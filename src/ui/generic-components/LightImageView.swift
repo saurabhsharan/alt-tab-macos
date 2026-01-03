@@ -3,8 +3,6 @@ import Cocoa
 /// this is a lightweight view which displays an image using its CALayer
 /// it is an alternative to NSImageView, which doesn't have internal complexities and performance costs
 class LightImageView: NSView {
-    var image: CGImage? { get { layer!.contents as! CGImage? } }
-
     required init?(coder: NSCoder) {
         fatalError("Class only supports programmatic initialization")
     }
@@ -26,6 +24,7 @@ class LightImageView: NSView {
             "position": NSNull(),
             "contentsScale": NSNull()
         ]
+        layerContentsRedrawPolicy = .never
     }
 
     func updateWithResizedCopy(_ image: CGImage?, _ size: NSSize) {
@@ -38,7 +37,9 @@ class LightImageView: NSView {
             layer!.contents = image
             layer!.contentsScale = scaleFactor
         }
-        frame.size = size
+        if frame.size != size {
+            frame.size = size
+        }
     }
 
     /// this schedules the image update for the next cycle

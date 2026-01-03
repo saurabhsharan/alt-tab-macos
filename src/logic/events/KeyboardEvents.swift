@@ -46,7 +46,7 @@ class KeyboardEvents {
                     fn(shortcutId, shortcut)
                 }
             }
-            Logger.info("toggleGlobalShortcuts", shouldDisable)
+            Logger.info { "disabled:\(shouldDisable)" }
             globalShortcutsAreDisabled = shouldDisable
         }
     }
@@ -97,7 +97,7 @@ class KeyboardEvents {
             userInfo: nil)
         if let eventTap {
             let runLoopSource = CFMachPortCreateRunLoopSource(nil, eventTap, 0)
-            CFRunLoopAddSource(BackgroundWork.keyboardAndTrackpadEventsThread.runLoop, runLoopSource, .commonModes)
+            CFRunLoopAddSource(BackgroundWork.keyboardAndMouseAndTrackpadEventsThread.runLoop, runLoopSource, .commonModes)
         } else {
             App.app.restart()
         }

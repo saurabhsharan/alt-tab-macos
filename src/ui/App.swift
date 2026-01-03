@@ -56,7 +56,7 @@ class App: AppCenterApplication {
     }
 
     func hideUi(_ keepPreview: Bool = false) {
-        Logger.info(appIsBeingUsed)
+        Logger.info { "appIsBeingUsed:\(self.appIsBeingUsed)" }
         guard appIsBeingUsed else { return } // already hidden
         appIsBeingUsed = false
         isFirstSummon = true
@@ -115,7 +115,7 @@ class App: AppCenterApplication {
     func focusTarget() {
         guard appIsBeingUsed else { return } // already hidden
         let focusedWindow = Windows.focusedWindow()
-        Logger.info(focusedWindow?.debugId)
+        Logger.info { focusedWindow?.debugId() }
         focusSelectedWindow(focusedWindow)
     }
 
@@ -124,7 +124,7 @@ class App: AppCenterApplication {
     }
 
     @objc func checkPermissions(_ sender: NSMenuItem) {
-        permissionsWindow.show({})
+        permissionsWindow.show()
     }
 
     @objc func supportProject() {
@@ -173,7 +173,7 @@ class App: AppCenterApplication {
 
     func previousWindowShortcutWithRepeatingKey() {
         cycleSelection(.trailing)
-        KeyRepeatTimer.toggleRepeatingKeyPreviousWindow()
+        KeyRepeatTimer.startRepeatingKeyPreviousWindow()
     }
 
     func focusSelectedWindow(_ selectedWindow: Window?) {
@@ -197,8 +197,8 @@ class App: AppCenterApplication {
         CGWarpMouseCursorPosition(point)
     }
 
-    func refreshOpenUi(_ windowsToScreenshot: [Window], _ source: RefreshCausedBy) {
-        Windows.refreshThumbnailsAsync(windowsToScreenshot, source)
+    func refreshOpenUi(_ windowsToScreenshot: [Window], _ source: RefreshCausedBy, windowRemoved: Bool = false) {
+        Windows.refreshThumbnailsAsync(windowsToScreenshot, source, windowRemoved: windowRemoved)
         guard appIsBeingUsed else { return }
         if source == .refreshUiAfterExternalEvent {
             if !Windows.updatesBeforeShowing() { hideUi(); return }
@@ -217,10 +217,9 @@ class App: AppCenterApplication {
 
     func showUiOrCycleSelection(_ shortcutIndex: Int, _ forceDoNothingOnRelease_: Bool) {
         forceDoNothingOnRelease = forceDoNothingOnRelease_
-        Logger.debug(shortcutIndex, self.shortcutIndex, isFirstSummon)
+        Logger.debug { "isFirstSummon:\(self.isFirstSummon) shortcutIndex:\(shortcutIndex)" }
         App.app.appIsBeingUsed = true
         if isFirstSummon || shortcutIndex != self.shortcutIndex {
-            MainMenu.toggle(enabled: false)
             NSScreen.updatePreferred()
             if isVeryFirstSummon {
                 Windows.sortByLevel()
@@ -243,7 +242,7 @@ class App: AppCenterApplication {
             }
         } else {
             cycleSelection(.leading)
-            KeyRepeatTimer.toggleRepeatingKeyNextWindow()
+            KeyRepeatTimer.startRepeatingKeyNextWindow()
         }
     }
 
@@ -254,7 +253,7 @@ class App: AppCenterApplication {
         refreshOpenUi([], .showUi)
         guard appIsBeingUsed else { return }
         thumbnailsPanel.show()
-        KeyRepeatTimer.toggleRepeatingKeyNextWindow()
+        KeyRepeatTimer.startRepeatingKeyNextWindow()
         Windows.refreshThumbnailsAsync(Windows.list, .refreshOnlyThumbnailsAfterShowUi)
     }
 
@@ -279,7 +278,7 @@ extension App: NSApplicationDelegate {
         appCenterDelegate = AppCenterCrash()
         App.shared.disableRelaunchOnLogin()
         Logger.initialize()
-        Logger.info("Launching AltTab \(App.version)")
+        Logger.info { "Launching AltTab \(App.version)" }
         #if DEBUG
         UserDefaults.standard.set(true, forKey: "NSConstraintBasedLayoutVisualizeMutuallyExclusiveConstraints")
         #endif
@@ -288,35 +287,38 @@ extension App: NSApplicationDelegate {
         #endif
         AXUIElement.setGlobalTimeout()
         Preferences.initialize()
-        BackgroundWork.startSystemPermissionThread()
         permissionsWindow = PermissionsWindow()
-        SystemPermissions.ensurePermissionsAreGranted { [weak self] in
-            guard let self else { return }
-            Logger.info("System Permissions are granted")
-            BackgroundWork.start()
-            NSScreen.updatePreferred()
-            Appearance.update()
-            Menubar.initialize()
-            MainMenu.loadFromXib()
-            self.thumbnailsPanel = ThumbnailsPanel()
-            self.previewPanel = PreviewPanel()
-            Spaces.refresh()
-            SpacesEvents.observe()
-            ScreensEvents.observe()
-            SystemAppearanceEvents.observe()
-            SystemScrollerStyleEvents.observe()
-            Applications.initialDiscovery()
-            self.preferencesWindow = PreferencesWindow()
-            self.feedbackWindow = FeedbackWindow()
-            KeyboardEvents.addEventHandlers()
-            MouseEvents.observe()
-            TrackpadEvents.observe()
-            CliEvents.observe()
-            Logger.info("AltTab finished launching")
-            #if DEBUG
+        BackgroundWork.preStart()
+        SystemPermissions.ensurePermissionsAreGranted()
+    }
+
+    func continueAppLaunchAfterPermissionsAreGranted() {
+        Logger.info { "System permissions are granted; continuing launch" }
+        BackgroundWork.start()
+        NSScreen.updatePreferred()
+        Appearance.update()
+        Menubar.initialize()
+        MainMenu.loadFromXib()
+        self.thumbnailsPanel = ThumbnailsPanel()
+        self.previewPanel = PreviewPanel()
+        Spaces.refresh()
+        SpacesEvents.observe()
+        ScreensEvents.observe()
+        SystemAppearanceEvents.observe()
+        SystemScrollerStyleEvents.observe()
+        Applications.initialDiscovery()
+        self.preferencesWindow = PreferencesWindow()
+        self.feedbackWindow = FeedbackWindow()
+        KeyboardEvents.addEventHandlers()
+        MouseEvents.observe()
+        TrackpadEvents.observe()
+        CliEvents.observe()
+        // login item and plist updates can be done a bit later, to accelerate launch
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { GeneralTab.startAtLoginCallback() }
+        Logger.info { "Finished launching AltTab" }
+        #if DEBUG
 //            self.showPreferencesWindow()
-            #endif
-        }
+        #endif
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

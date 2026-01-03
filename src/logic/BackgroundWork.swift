@@ -2,64 +2,69 @@ import Foundation
 
 // queues and dedicated threads to observe background events such as keyboard inputs, or accessibility events
 class BackgroundWork {
-    // we use an OperationQueue tied to the global DispatchQueue to call blocking APIs in parallel
+    // we use Threads when the APIs we observe require a RunLoop (e.g. CGEvent.tapCreate, AXObserverGetRunLoopSource, CFMessagePortCreateRunLoopSource)
+    // when possible, we prefer OperationQueues
+    static var accessibilityEventsThread: BackgroundThreadWithRunLoop!
+    static var keyboardAndMouseAndTrackpadEventsThread: BackgroundThreadWithRunLoop!
+    static var missionControlThread: BackgroundThreadWithRunLoop!
+    static var cliEventsThread: BackgroundThreadWithRunLoop!
+
+    // we use an OperationQueue for most tasks, especially when we need to call blocking APIs in parallel
+    static var repeatingKeyQueue: LabeledOperationQueue!
     static var screenshotsQueue: LabeledOperationQueue!
     static var accessibilityCommandsQueue: LabeledOperationQueue!
     static var axCallsFirstAttemptQueue: LabeledOperationQueue!
     static var axCallsRetriesQueue: LabeledOperationQueue!
     static var axCallsManualDiscoveryQueue: LabeledOperationQueue!
     static var crashReportsQueue: LabeledOperationQueue!
-    // we use Threads to observe events in sequence
-    static var accessibilityEventsThread: BackgroundThreadWithRunLoop!
-    static var keyboardAndTrackpadEventsThread: BackgroundThreadWithRunLoop!
-    static var systemPermissionsThread: BackgroundThreadWithRunLoop!
-    static var repeatingKeyThread: BackgroundThreadWithRunLoop!
-    static var missionControlThread: BackgroundThreadWithRunLoop!
-    static var cliEventsThread: BackgroundThreadWithRunLoop!
-    static var debugMenu: DebugMenu!
+    static var permissionsCheckOnTimerQueue: LabeledOperationQueue!
+    static var permissionsSystemCallsQueue: LabeledOperationQueue!
 
+    private static var debugMenu: DebugMenu!
     private static var totalPotentialThreadCount = 0
 
+    static func preStart() {
+        // we make calls to the system permissions API to know if permissions are granted. We do this on a timer
+        permissionsCheckOnTimerQueue = LabeledOperationQueue("permissionsCheckOnTimer", .userInteractive, 1)
+        // if macOS is overwhelmed, let's reduce the pressure on it by calling permission APIs one at a time
+        permissionsSystemCallsQueue = LabeledOperationQueue("permissionsSystemCalls", .userInteractive, 1)
+    }
+
     static func start() {
-        screenshotsQueue = LabeledOperationQueue("screenshotsQueue", .userInteractive, 8)
+        screenshotsQueue = LabeledOperationQueue("screenshots", .userInteractive, 8)
         // calls to focus/close/minimize/etc windows
         // They are tried once and if they timeout we don't retry. The OS seems to still execute them even if the call timed out
-        accessibilityCommandsQueue = LabeledOperationQueue("accessibilityCommandsQueue", .userInteractive, 4)
+        accessibilityCommandsQueue = LabeledOperationQueue("axCommands", .userInteractive, 4)
         // calls to the AX APIs can block for a long time (e.g. if an app is unresponsive)
         // We first try the AX calls on axCallsFirstAttemptQueue. If we get a timeout, we move to axCallsRetriesQueue and retry there for a while
-        axCallsFirstAttemptQueue = LabeledOperationQueue("axCallsFirstAttemptQueue", .userInteractive, 8)
-        axCallsRetriesQueue = LabeledOperationQueue("axCallsRetriesQueue", .userInteractive, 8)
+        axCallsFirstAttemptQueue = LabeledOperationQueue("axCallsFirst", .userInteractive, 8)
+        axCallsRetriesQueue = LabeledOperationQueue("axCallsRetry", .userInteractive, 8)
         // we separate calls to manuallyUpdateWindows since those can be very heavy and numerous
-        axCallsManualDiscoveryQueue = LabeledOperationQueue("axCallsManualDiscoveryQueue", .userInteractive, 8)
+        axCallsManualDiscoveryQueue = LabeledOperationQueue("axCallsManual", .userInteractive, 8)
+        // we time key repeat on a background queue. We handle their consequence on the main-thread
+        repeatingKeyQueue = LabeledOperationQueue("repeatingKey", .userInteractive, 1)
         // we observe app and windows notifications. They arrive on this thread, and are handled off the main thread initially
-        accessibilityEventsThread = BackgroundThreadWithRunLoop("accessibilityEventsThread", .userInteractive)
+        accessibilityEventsThread = BackgroundThreadWithRunLoop("axEvents", .userInteractive)
         // we listen to as any keyboard events as possible on a background thread, as it's more available/reliable than the main thread
-        keyboardAndTrackpadEventsThread = BackgroundThreadWithRunLoop("keyboardAndTrackpadEventsThread", .userInteractive)
-        // we time key repeat on a background thread for precision. We handle their consequence on the main-thread
-        repeatingKeyThread = BackgroundThreadWithRunLoop("repeatingKeyThread", .userInteractive)
+        keyboardAndMouseAndTrackpadEventsThread = BackgroundThreadWithRunLoop("inputDevices", .userInteractive)
         // we main Mission Control state on a background thread. We protect reads from main-thread with an NSLock
-        missionControlThread = BackgroundThreadWithRunLoop("missionControlThread", .userInteractive)
+        missionControlThread = BackgroundThreadWithRunLoop("missionControl", .userInteractive)
         // we listen to CLI commands (CFMessagePort events)
-        cliEventsThread = BackgroundThreadWithRunLoop("cliEventsThread", .userInteractive)
+        cliEventsThread = BackgroundThreadWithRunLoop("cliMessages", .userInteractive)
 //        logThreadsAndQueuesOnRepeat()
     }
 
     static func startCrashReportsQueue() {
         if crashReportsQueue == nil {
             // crash reports can be sent off the main thread
-            crashReportsQueue = LabeledOperationQueue("crashReportsQueue", .utility, 1)
+            crashReportsQueue = LabeledOperationQueue("crashReports", .utility, 1)
         }
-    }
-
-    static func startSystemPermissionThread() {
-        // not 100% sure this shouldn't be on the main-thread; it doesn't do anything except dispatch to main.async
-        systemPermissionsThread = BackgroundThreadWithRunLoop("systemPermissionsThread", .utility)
     }
 
     static func addPotentialThreadCount(_ additionalCount: Int) {
         totalPotentialThreadCount += additionalCount
         // a macos process has a soft limit of 64 threads. We need to be careful to don't spawn too many threads through DispatchQueues
-        assert(totalPotentialThreadCount <= 43)
+        assert(totalPotentialThreadCount <= 45)
     }
 
     // useful during development to inspect how many threads are used by AltTab
@@ -82,7 +87,7 @@ class BackgroundWork {
             map[queue.underlyingQueue!.label] = queue.operations.reduce(0) { $1.isExecuting ? $0 + 1 : $0 }
         }
         let prettyPrintMap = map.sorted { $0.key < $1.key }.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
-        Logger.debug(prettyPrintMap)
+        Logger.debug { prettyPrintMap }
     }
 
     private static func logThreads() -> Void {
@@ -109,8 +114,8 @@ class BackgroundWork {
         vm_deallocate(mach_task_self_,
             vm_address_t(bitPattern: threads),
             vm_size_t(count) * vm_size_t(MemoryLayout<thread_t>.size))
-        Logger.info(namedThreads.count, "Named threads:", namedThreads.sorted())
-        Logger.info(unnamedThreadsCount, "Unnamed threads (e.g. from GCD queues)")
+        Logger.info { "\(namedThreads.count) named threads:\(namedThreads.sorted())" }
+        Logger.info { "\(unnamedThreadsCount) unnamed threads (e.g. from GCD queues)" }
     }
 
     class BackgroundThreadWithRunLoop: Thread {
@@ -128,8 +133,8 @@ class BackgroundWork {
         }
 
         override func main() {
-            Logger.debug(name)
-            // the RunLoop is lazy; calling this initialize it
+            Logger.debug { "Thread ready" }
+            // the RunLoop is lazy; calling this initializes it
             runLoop = CFRunLoopGetCurrent()
             addDummySourceToPreventRunLoopTermination()
             threadStartSemaphore.signal()

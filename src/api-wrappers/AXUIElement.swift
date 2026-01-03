@@ -64,9 +64,7 @@ extension AXUIElement {
         // if their are common updates, we avoid congestion by only retrying the latest update
         if let pid, callType == .updateWindow || callType == .updateAppWindows {
             let unresponsiveAppsMapKey = "\(callType.rawValue)\(pid)"
-            axCallsRetriesQueueUnresponsiveAppsMap.lock.lock()
-            let time = axCallsRetriesQueueUnresponsiveAppsMap.map[unresponsiveAppsMapKey]
-            axCallsRetriesQueueUnresponsiveAppsMap.lock.unlock()
+            let time = axCallsRetriesQueueUnresponsiveAppsMap.withLock { $0[unresponsiveAppsMapKey] }
             if let time {
                 if startTimeInNanoseconds > time {
                     // new most recent call; replace and retry
@@ -85,7 +83,7 @@ extension AXUIElement {
         // should we give up?
         let timePassedInSeconds = Float(DispatchTime.now().uptimeNanoseconds - startTimeInNanoseconds) / 1_000_000_000
         if timePassedInSeconds >= axCallsRetriesQueueTimeoutInSeconds {
-            Logger.info("AX call failed for more than \(Int(axCallsRetriesQueueTimeoutInSeconds))s. Giving up on it", logFromContext(file, function, line, context, callType))
+            Logger.info { "AX call failed for more than \(Int(axCallsRetriesQueueTimeoutInSeconds))s. Giving up on it. \(logFromContext(file, function, line, context, callType))" }
             if let pid, callType == .updateWindow || callType == .updateAppWindows {
                 let unresponsiveAppsMapKey = "\(callType.rawValue)\(pid)"
                 axCallsRetriesQueueUnresponsiveAppsMap.withLock { $0.removeValue(forKey: unresponsiveAppsMapKey) }
@@ -93,7 +91,7 @@ extension AXUIElement {
             return
         }
         // retry
-        Logger.info(logFromContext(file, function, line, context, callType))
+        Logger.info { "(pid:\(pid) wid:\(wid)) \(logFromContext(file, function, line, context, callType))" }
         retryAxCallUntilTimeout(file: file, function: function, line: line, context: context, after: .now() + humanPerceptionDelay, debounceType: debounceType, pid: pid, wid: wid, retriesQueue: true, startTimeInNanoseconds: startTimeInNanoseconds, callType: callType, block: block)
     }
 
@@ -292,8 +290,7 @@ extension AXUIElement {
                     crossoverWindow(app, role, subrole, level) ||
                     isAlwaysOnTopScrcpy(app, level, role, subrole)
             ) || (
-                // CGWindowLevel == .normalWindow helps filter out iStats Pro and other top-level pop-overs, and floating windows
-                level == CGWindow.normalLevel && (
+                 (
                     [kAXStandardWindowSubrole, kAXDialogSubrole].contains(subrole) ||
                         openBoard(app) ||
                         adobeAudition(app, subrole) ||
@@ -485,9 +482,9 @@ enum DebounceType: Int {
     case windowTitleChanged
 }
 
-class ConcurrentMap<K: Hashable, V> {
-    var map = [K: V]()
-    let lock = NSLock()
+final class ConcurrentMap<K: Hashable, V> {
+    private var map = [K: V]()
+    private let lock = NSLock()
 
     @discardableResult
     func withLock<T>(_ block: (inout [K: V]) -> T) -> T {
