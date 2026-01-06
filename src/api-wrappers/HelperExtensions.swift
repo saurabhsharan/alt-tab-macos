@@ -194,11 +194,6 @@ extension DispatchQoS {
 }
 
 extension NSImage {
-    func appIconFixedSize(_ size: NSSize) -> CGImage? {
-        var rect = NSRect(origin: .zero, size: size)
-        return cgImage(forProposedRect: &rect, context: nil, hints: nil)
-    }
-
     // NSImage(named) caches/reuses NSImage objects; we force separate instances of images by using copy()
     static func initCopy(_ name: String) -> NSImage {
         return NSImage(named: name)!.copy() as! NSImage
@@ -218,6 +213,15 @@ extension CGImage {
 
     func size() -> NSSize {
         return NSSize(width: width, height: height)
+    }
+}
+
+extension CVPixelBuffer {
+    func size() -> NSSize {
+        NSSize(
+            width: CVPixelBufferGetWidth(self),
+            height: CVPixelBufferGetHeight(self)
+        )
     }
 }
 
