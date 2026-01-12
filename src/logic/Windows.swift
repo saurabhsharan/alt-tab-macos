@@ -237,9 +237,10 @@ class Windows {
 
     static func cycleFocusedWindowIndex(_ step: Int, allowWrap: Bool = true) {
         let nextIndex = windowIndexAfterCycling(step)
-        // don't wrap-around at the end, if key-repeat
-        if (((step > 0 && nextIndex < focusedWindowIndex) || (step < 0 && nextIndex > focusedWindowIndex)) &&
-            (!allowWrap || ATShortcut.lastEventIsARepeat || !KeyRepeatTimer.timerIsSuspended))
+        let isWrapping = (step > 0 && nextIndex < focusedWindowIndex) || (step < 0 && nextIndex > focusedWindowIndex)
+        let keyRepeatWrapDisabled = !Preferences.holdTabWrapEnabled && (ATShortcut.lastEventIsARepeat || !KeyRepeatTimer.timerIsSuspended)
+        // don't wrap-around at the end on key-repeat unless enabled
+        if (isWrapping && (!allowWrap || keyRepeatWrapDisabled))
                // don't cycle to another row, if !allowWrap
                || (!allowWrap && list[nextIndex].rowIndex != list[focusedWindowIndex].rowIndex) {
             return

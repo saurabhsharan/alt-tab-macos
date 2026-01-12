@@ -8,6 +8,8 @@ class AdditionalControlsSheet: SheetWindow {
             rightViews: [LabelAndControl.makeSwitch("vimKeysEnabled", extraAction: ControlsTab.vimKeysEnabledCallback)])
         let enableMouse = TableGroupView.Row(leftTitle: NSLocalizedString("Select windows on mouse hover", comment: ""),
             rightViews: [LabelAndControl.makeSwitch("mouseHoverEnabled")])
+        let enableHoldTabWrap = TableGroupView.Row(leftTitle: NSLocalizedString("Cycle windows when holding Tab", comment: ""),
+            rightViews: [LabelAndControl.makeSwitch("holdTabWrapEnabled")])
         let enableCursorFollowFocus = TableGroupView.Row(leftTitle: NSLocalizedString("Cursor follows focus", comment: ""),
             rightViews: [LabelAndControl.makeDropdown("cursorFollowFocus", CursorFollowFocus.allCases)])
         let enableTrackpadHapticFeedback = TableGroupView.Row(leftTitle: NSLocalizedString("Trackpad haptic feedback", comment: ""),
@@ -21,6 +23,7 @@ class AdditionalControlsSheet: SheetWindow {
         _ = table1.addRow(enableArrows)
         _ = table1.addRow(enableVimKeys)
         _ = table1.addRow(enableMouse)
+        _ = table1.addRow(enableHoldTabWrap)
         let table2 = TableGroupView(title: NSLocalizedString("Miscellaneous", comment: ""),
             width: PreferencesWindow.width)
         _ = table2.addRow(enableCursorFollowFocus)
