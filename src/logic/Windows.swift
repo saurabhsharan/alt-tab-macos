@@ -249,9 +249,10 @@ class Windows {
     static func cycleSelectedWindowIndex(_ step: Int, allowWrap: Bool = true) {
         guard App.app.appIsBeingUsed else { return }
         let nextIndex = selectedWindowIndexAfterCycling(step)
-        // don't wrap-around at the end, if key-repeat
-        if (((step > 0 && nextIndex < selectedWindowIndex) || (step < 0 && nextIndex > selectedWindowIndex)) &&
-            (!allowWrap || ATShortcut.lastEventIsARepeat || !KeyRepeatTimer.timerIsSuspended))
+        let isWrapping = (step > 0 && nextIndex < selectedWindowIndex) || (step < 0 && nextIndex > selectedWindowIndex)
+        let keyRepeatWrapDisabled = !Preferences.holdTabWrapEnabled && (ATShortcut.lastEventIsARepeat || !KeyRepeatTimer.timerIsSuspended)
+        // don't wrap-around at the end on key-repeat unless enabled
+        if (isWrapping && (!allowWrap || keyRepeatWrapDisabled))
                // don't cycle to another row, if !allowWrap
                || (!allowWrap && list[nextIndex].rowIndex != list[selectedWindowIndex].rowIndex) {
             return

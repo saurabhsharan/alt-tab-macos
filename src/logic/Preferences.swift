@@ -23,6 +23,7 @@ class Preferences {
         "arrowKeysEnabled": "true",
         "vimKeysEnabled": "false",
         "mouseHoverEnabled": "false",
+        "holdTabWrapEnabled": "false",
         "cursorFollowFocus": CursorFollowFocus.never.indexAsString,
         "showMinimizedWindows": ShowHowPreference.show.indexAsString,
         "showMinimizedWindows2": ShowHowPreference.show.indexAsString,
@@ -109,6 +110,7 @@ class Preferences {
     static var arrowKeysEnabled: Bool { CachedUserDefaults.bool("arrowKeysEnabled") }
     // periphery:ignore
     static var vimKeysEnabled: Bool { CachedUserDefaults.bool("vimKeysEnabled") }
+    static var holdTabWrapEnabled: Bool { CachedUserDefaults.bool("holdTabWrapEnabled") }
     static var mouseHoverEnabled: Bool { CachedUserDefaults.bool("mouseHoverEnabled") }
     static var cursorFollowFocus: CursorFollowFocus { CachedUserDefaults.macroPref("cursorFollowFocus", CursorFollowFocus.allCases) }
     static var trackpadHapticFeedbackEnabled: Bool { CachedUserDefaults.bool("trackpadHapticFeedbackEnabled") }
