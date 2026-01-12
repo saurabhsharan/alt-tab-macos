@@ -6,6 +6,28 @@ class ThumbnailsPanel: NSPanel {
     private var didDisplayOnce = false
     static var maxPossibleThumbnailSize = NSSize.zero
     static var maxPossibleAppIconSize = NSSize.zero
+    private static let ignoredMouseEventTypes: Set<NSEvent.EventType> = [
+        .leftMouseDown,
+        .leftMouseUp,
+        .rightMouseDown,
+        .rightMouseUp,
+        .otherMouseDown,
+        .otherMouseUp,
+        .mouseMoved,
+        .mouseEntered,
+        .mouseExited,
+        .leftMouseDragged,
+        .rightMouseDragged,
+        .otherMouseDragged,
+        .scrollWheel,
+        .gesture,
+        .magnify,
+        .swipe,
+        .rotate,
+        .beginGesture,
+        .endGesture,
+        .pressure,
+    ]
 
     convenience init() {
         self.init(contentRect: .zero, styleMask: .nonactivatingPanel, backing: .buffered, defer: false)
@@ -42,6 +64,13 @@ class ThumbnailsPanel: NSPanel {
         setContentSize(thumbnailsView.contentView.frame.size)
         guard App.app.appIsBeingUsed else { return }
         NSScreen.preferred.repositionPanel(self)
+    }
+
+    override func sendEvent(_ event: NSEvent) {
+        if !Preferences.mouseHoverEnabled && ThumbnailsPanel.ignoredMouseEventTypes.contains(event.type) {
+            return
+        }
+        super.sendEvent(event)
     }
 
     override func orderOut(_ sender: Any?) {
