@@ -368,6 +368,7 @@ class Windows {
             !(window.application.bundleIdentifier.flatMap { id in
                 Preferences.blacklist.contains {
                     id.hasPrefix($0.bundleIdentifier) &&
+                        $0.matchesWindowTitle(window.isWindowlessApp ? nil : window.title) &&
                         ($0.hide == .always || (window.isWindowlessApp && $0.hide != .none))
                 }
             } ?? false) &&

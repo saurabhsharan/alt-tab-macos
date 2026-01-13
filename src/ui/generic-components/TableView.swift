@@ -28,6 +28,7 @@ class TableView: NSTableView {
         rowSizeStyle = .medium
         addHeaders([
             NSLocalizedString("App (BundleID starting with)", comment: ""),
+            NSLocalizedString("Window titles (comma-separated exact match)", comment: ""),
             String(format: NSLocalizedString("Hide in %@", comment: "%@ is AltTab"), App.name),
             NSLocalizedString("Ignore shortcuts when active", comment: "")
         ])
@@ -59,6 +60,8 @@ class TableView: NSTableView {
             column.headerCell = TableHeaderCell(header)
             if i == 0 {
                 column.width = 206
+            } else if i == 1 {
+                column.width = 190
             }
             addTableColumn(column)
         }
@@ -69,6 +72,8 @@ class TableView: NSTableView {
         if colId == "col1" {
             items[row].bundleIdentifier = LabelAndControl.getControlValue(control, nil)!
         } else if colId == "col2" {
+            items[row].windowTitles = LabelAndControl.getControlValue(control, nil) ?? ""
+        } else if colId == "col3" {
             items[row].hide = BlacklistHidePreference.allCases[Int(LabelAndControl.getControlValue(control, nil)!)!]
         } else {
             items[row].ignore = BlacklistIgnorePreference.allCases[Int(LabelAndControl.getControlValue(control, nil)!)!]
@@ -80,8 +85,8 @@ class TableView: NSTableView {
         Preferences.set("blacklist", items)
     }
 
-    private func text(_ item: BlacklistEntry) -> NSView {
-        let text = TextField(item.bundleIdentifier)
+    private func text(_ value: String, _ colId: String) -> NSView {
+        let text = TextField(value)
         text.isEditable = true
         text.allowsExpansionToolTips = true
         text.drawsBackground = false
@@ -89,7 +94,7 @@ class TableView: NSTableView {
         text.lineBreakMode = .byTruncatingTail
         text.usesSingleLineMode = true
         text.cell!.sendsActionOnEndEditing = true
-        text.onAction = { self.wasUpdated("col1", $0) }
+        text.onAction = { self.wasUpdated(colId, $0) }
         let parent = NSView()
         parent.addSubview(text)
         text.centerYAnchor.constraint(equalTo: parent.centerYAnchor).isActive = true
@@ -98,7 +103,7 @@ class TableView: NSTableView {
     }
 
     private func dropdown(_ item: BlacklistEntry, _ colId: String) -> NSView {
-        let isHidePref = colId == "col2"
+        let isHidePref = colId == "col3"
         let button = NSPopUpButton()
         button.translatesAutoresizingMaskIntoConstraints = false
         button.allowsExpansionToolTips = true
@@ -124,7 +129,14 @@ extension TableView: NSTableViewDataSource {
 extension TableView: NSTableViewDelegate {
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         let item = items[row]
-        return tableColumn!.identifier.rawValue == "col1" ? text(item) : dropdown(item, tableColumn!.identifier.rawValue)
+        let colId = tableColumn!.identifier.rawValue
+        if colId == "col1" {
+            return text(item.bundleIdentifier, colId)
+        }
+        if colId == "col2" {
+            return text(item.windowTitles, colId)
+        }
+        return dropdown(item, colId)
     }
 }
 
