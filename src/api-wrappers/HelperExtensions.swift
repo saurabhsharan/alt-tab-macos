@@ -1,5 +1,6 @@
 import Cocoa
 import Darwin
+import Carbon.HIToolbox.Events
 
 extension NSAppearance {
     func getThemeName() -> AppearanceThemePreference {
@@ -303,6 +304,24 @@ extension CaseIterable where Self: Equatable {
 class ModifierFlags {
     static var current: NSEvent.ModifierFlags {
         return NSEvent.modifierFlags
+    }
+}
+
+typealias CarbonModifierFlags = UInt32
+
+extension CarbonModifierFlags {
+    // cocoaToCarbonFlags may remove NSEventModifierFlagFunction
+    // we filter modifiers to only include valid modifiers; which doesn't include fn as we don't support it as a modifier
+    func cleaned() -> Self {
+        return self & (UInt32(cmdKey) | UInt32(shiftKey) | UInt32(optionKey) | UInt32(controlKey) | UInt32(alphaLock))
+    }
+}
+
+extension NSEvent.ModifierFlags {
+    // NSEvent.addLocalMonitorForEvents may return events with broken modifiers (e.g. [.NSEventModifierFlagOption, .NSEventModifierFlagFunction, 0x120])
+    // we filter modifiers to only include valid modifiers; which doesn't include fn as we don't support it as a modifier
+    func cleaned() -> Self {
+        return self.intersection([.command, .shift, .option, .control, .capsLock])
     }
 }
 
