@@ -283,9 +283,11 @@ class App: AppCenterApplication {
 
     func checkIfShortcutsShouldBeDisabled(_ activeWindow: Window?, _ activeApp: Application?) {
         let app = activeWindow?.application ?? activeApp!
+        let windowTitle = activeWindow?.isWindowlessApp == true ? nil : activeWindow?.title
         let shortcutsShouldBeDisabled = Preferences.blacklist.contains { blacklistedId in
             if let id = app.bundleIdentifier {
                 return id.hasPrefix(blacklistedId.bundleIdentifier) &&
+                    blacklistedId.matchesWindowTitle(windowTitle) &&
                     (blacklistedId.ignore == .always || (blacklistedId.ignore == .whenFullscreen && (activeWindow?.isFullscreen ?? false)))
             }
             return false

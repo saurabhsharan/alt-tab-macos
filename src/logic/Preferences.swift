@@ -301,4 +301,41 @@ struct BlacklistEntry: Codable {
     var bundleIdentifier: String
     var hide: BlacklistHidePreference
     var ignore: BlacklistIgnorePreference
+    var windowTitles: String
+
+    init(bundleIdentifier: String, hide: BlacklistHidePreference, ignore: BlacklistIgnorePreference, windowTitles: String = "") {
+        self.bundleIdentifier = bundleIdentifier
+        self.hide = hide
+        self.ignore = ignore
+        self.windowTitles = windowTitles
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case bundleIdentifier
+        case hide
+        case ignore
+        case windowTitles
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        bundleIdentifier = try container.decode(String.self, forKey: .bundleIdentifier)
+        hide = try container.decode(BlacklistHidePreference.self, forKey: .hide)
+        ignore = try container.decode(BlacklistIgnorePreference.self, forKey: .ignore)
+        windowTitles = try container.decodeIfPresent(String.self, forKey: .windowTitles) ?? ""
+    }
+
+    func matchesWindowTitle(_ title: String?) -> Bool {
+        let filters = windowTitleFilters()
+        guard !filters.isEmpty else { return true }
+        guard let title else { return false }
+        return filters.contains(title)
+    }
+
+    private func windowTitleFilters() -> [String] {
+        return windowTitles
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
 }
