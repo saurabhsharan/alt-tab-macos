@@ -63,7 +63,8 @@ class App: AppCenterApplication {
         isFirstSummon = true
         forceDoNothingOnRelease = false
         MouseEvents.toggle(false)
-        ScrollwheelEvents.toggle(false)
+        CursorEvents.toggle(false)
+        TrackpadEvents.reset()
         hideThumbnailPanelWithoutChangingKeyWindow()
         if !keepPreview {
             previewPanel.orderOut(nil)
@@ -303,6 +304,7 @@ extension App: NSApplicationDelegate {
         self.thumbnailsPanel = ThumbnailsPanel()
         self.previewPanel = PreviewPanel()
         Spaces.refresh()
+        Screens.refresh()
         SpacesEvents.observe()
         ScreensEvents.observe()
         ThumbnailsPanel.updateMaxPossibleThumbnailSize()
@@ -314,6 +316,7 @@ extension App: NSApplicationDelegate {
         self.feedbackWindow = FeedbackWindow()
         KeyboardEvents.addEventHandlers()
         MouseEvents.observe()
+        CursorEvents.observe()
         TrackpadEvents.observe()
         CliEvents.observe()
         // login item and plist updates can be done a bit later, to accelerate launch

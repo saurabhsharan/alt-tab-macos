@@ -42,14 +42,16 @@ class ATShortcut {
         return false
     }
 
-    private func modifiersMatch(_ modifiers: UInt32) -> Bool {
+    private func modifiersMatch(_ modifiers: CarbonModifierFlags) -> Bool {
+        let modifiersCleaned = modifiers.cleaned()
+        let shortcutModifiersCleaned = shortcut.carbonModifierFlags.cleaned()
         // holdShortcut: contains at least
         if id.hasPrefix("holdShortcut") {
-            return modifiers == (modifiers | shortcut.carbonModifierFlags)
+            return modifiersCleaned == (modifiersCleaned | shortcutModifiersCleaned)
         }
         // other shortcuts: contains exactly or exactly + holdShortcut modifiers
-        let holdModifiers = ControlsTab.shortcuts[Preferences.indexToName("holdShortcut", App.app.shortcutIndex)]?.shortcut.carbonModifierFlags ?? 0
-        return modifiers == shortcut.carbonModifierFlags || modifiers == (shortcut.carbonModifierFlags | holdModifiers)
+        let holdModifiersCleaned = ControlsTab.shortcuts[Preferences.indexToName("holdShortcut", App.app.shortcutIndex)]?.shortcut.carbonModifierFlags.cleaned() ?? 0
+        return modifiersCleaned == shortcutModifiersCleaned || modifiersCleaned == (shortcutModifiersCleaned | holdModifiersCleaned)
     }
 
     func shouldTrigger() -> Bool {

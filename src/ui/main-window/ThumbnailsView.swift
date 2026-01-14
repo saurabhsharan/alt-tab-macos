@@ -153,7 +153,6 @@ class ThumbnailsView {
                 // release images from unused recycledViews; they take lots of RAM
                 view.thumbnail.releaseImage()
                 view.appIcon.releaseImage()
-                view.windowlessIcon.releaseImage()
             }
         }
         scrollView.documentView!.subviews = newViews
@@ -291,7 +290,7 @@ class ScrollView: NSScrollView {
     }
 
     override func mouseMoved(with event: NSEvent) {
-        guard let documentView, !isCurrentlyScrolling && !ScrollwheelEvents.shouldBeEnabled else { return }
+        guard let documentView, !isCurrentlyScrolling && CursorEvents.isAllowedToMouseHover else { return }
         let location = documentView.convert(App.app.thumbnailsPanel.mouseLocationOutsideOfEventStream, from: nil)
         let newTarget = findTarget(location)
         guard newTarget !== previousTarget else { return }
@@ -308,8 +307,7 @@ class ScrollView: NSScrollView {
     }
 
     private func findTarget(_ location: NSPoint) -> ThumbnailView? {
-        for i in 0..<Windows.list.count {
-            let view = ThumbnailsView.recycledViews[i]
+        for case let view as ThumbnailView in documentView!.subviews {
             let frame = view.frame
             let expandedFrame = CGRect(x: frame.minX - (App.shared.userInterfaceLayoutDirection == .leftToRight ? 0 : 1), y: frame.minY, width: frame.width + 1, height: frame.height + 1)
             if expandedFrame.contains(location) {

@@ -100,6 +100,7 @@ class ThumbnailsPanel: NSPanel {
         alphaValue = 1
         makeKeyAndOrderFront(nil)
         MouseEvents.toggle(true)
+        CursorEvents.toggle(true)
         thumbnailsView.scrollView.flashScrollers()
     }
 

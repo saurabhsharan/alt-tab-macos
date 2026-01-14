@@ -1,5 +1,6 @@
 import Cocoa
 import Darwin
+import Carbon.HIToolbox.Events
 
 extension NSAppearance {
     func getThemeName() -> AppearanceThemePreference {
@@ -198,6 +199,15 @@ extension NSImage {
     static func initCopy(_ name: String) -> NSImage {
         return NSImage(named: name)!.copy() as! NSImage
     }
+
+    func tinted(_ color: NSColor) -> NSImage {
+        NSImage(size: size, flipped: false) { rect in
+            color.set()
+            rect.fill()
+            self.draw(in: rect, from: NSRect(origin: .zero, size: self.size), operation: .destinationIn, fraction: 1.0)
+            return true
+        }
+    }
 }
 
 extension CGImage {
@@ -213,6 +223,23 @@ extension CGImage {
 
     func size() -> NSSize {
         return NSSize(width: width, height: height)
+    }
+
+    func iFullyTransparent() -> Bool {
+        guard ![.none, .noneSkipFirst, .noneSkipLast].contains(alphaInfo),
+              let provider = dataProvider, let data = provider.data, let ptr = CFDataGetBytePtr(data)
+        else { return false }
+        // Assumes: kCGImageAlphaPremultipliedFirst | kCGImageByteOrder32Little
+        // Layout: [B, G, R, A]
+        let length = CFDataGetLength(data)
+        var i = 3
+        while i < length {
+            if ptr[i] != 0 {
+                return false
+            }
+            i += 4
+        }
+        return true
     }
 }
 
@@ -277,6 +304,24 @@ extension CaseIterable where Self: Equatable {
 class ModifierFlags {
     static var current: NSEvent.ModifierFlags {
         return NSEvent.modifierFlags
+    }
+}
+
+typealias CarbonModifierFlags = UInt32
+
+extension CarbonModifierFlags {
+    // cocoaToCarbonFlags may remove NSEventModifierFlagFunction
+    // we filter modifiers to only include valid modifiers; which doesn't include fn as we don't support it as a modifier
+    func cleaned() -> Self {
+        return self & (UInt32(cmdKey) | UInt32(shiftKey) | UInt32(optionKey) | UInt32(controlKey) | UInt32(alphaLock))
+    }
+}
+
+extension NSEvent.ModifierFlags {
+    // NSEvent.addLocalMonitorForEvents may return events with broken modifiers (e.g. [.NSEventModifierFlagOption, .NSEventModifierFlagFunction, 0x120])
+    // we filter modifiers to only include valid modifiers; which doesn't include fn as we don't support it as a modifier
+    func cleaned() -> Self {
+        return self.intersection([.command, .shift, .option, .control, .capsLock])
     }
 }
 
@@ -353,5 +398,19 @@ extension String.StringInterpolation {
         } else {
             appendLiteral("nil")
         }
+    }
+}
+
+extension CGEvent {
+    func toNSEvent() -> NSEvent? {
+        if Thread.isMainThread {
+            return NSEvent(cgEvent: self)
+        }
+        // conversion has to happen on the main-thread, or appkit will crash
+        var nsEvent: NSEvent?
+        DispatchQueue.main.sync {
+            nsEvent = NSEvent(cgEvent: self)
+        }
+        return nsEvent
     }
 }
