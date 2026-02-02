@@ -1,22 +1,23 @@
-<div align = center>
-
 # AltTab
 
 Fork of [AltTab](https://alt-tab-macos.netlify.app/) with custom tweaks.
 
-**AltTab** brings the power of Windows alt-tab to macOS
+### git patch workflow
 
-[Official website](https://alt-tab-macos.netlify.app/)<br/><sub>15K stars</sub> | [Download](https://github.com/lwouis/alt-tab-macos/releases/download/v9.0.0/AltTab-9.0.0.zip)<br/><sub>6.8M downloads</sub>
--|-
+High-level: keep `master` a mirror of `upstream/master`, and put all personal patches on `saurabh-patches` branch that is rebased on top of master
 
-<div align="right">
-  <p>Project supported by</p>
-  <a href="https://jb.gg/OpenSource">
-    <img src="docs/public/demo/jetbrains.svg" alt="Jetbrains" width="149" height="32">
-  </a>
-</div>
+Make all changes on the `saurabh-patches` branch and push to that branch like normal.
 
-</div>
+For keeping in sync with upstream:
+1. `git switch master`
+2. `git fetch upstream`
+3. `git reset --hard upstream/master`
+4. `git push --force-with-lease origin master`
+5. `git switch saurabh-patches`
+6. `git rebase upstream/master`
+7. `git push --force-with-lease origin saurabh-patches`
+
+Note: never merge `upstream/master` into `master` or `saurabh-patches`. This prevents issues when the upstream repo force-pushes to commits that were already merged.
 
 ### Fixing TCC permissions when doing local dev
 1. Delete existing AltTab.app binary
@@ -24,3 +25,4 @@ Fork of [AltTab](https://alt-tab-macos.netlify.app/) with custom tweaks.
 3. Copy the new AltTab.app into /Applications (but don't open it yet)
 4. Manually add the new AltTab.app to Accessibility in Privacy & Security
 5. Open the new AltTab.app
+
