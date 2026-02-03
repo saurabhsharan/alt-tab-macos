@@ -64,6 +64,7 @@ class App: AppCenterApplication {
         appIsBeingUsed = false
         isFirstSummon = true
         forceDoNothingOnRelease = false
+        KeyboardEvents.toggleCommandShiftTabTap(false)
         CursorEvents.toggle(false)
         TrackpadEvents.reset()
         hideTilesPanelWithoutChangingKeyWindow()
@@ -243,6 +244,7 @@ class App: AppCenterApplication {
         forceDoNothingOnRelease = forceDoNothingOnRelease_
         Logger.debug { "isFirstSummon:\(self.isFirstSummon) shortcutIndex:\(shortcutIndex)" }
         App.app.appIsBeingUsed = true
+        KeyboardEvents.toggleCommandShiftTabTap(true)
         if isFirstSummon || shortcutIndex != self.shortcutIndex {
             NSScreen.updatePreferred()
             if isVeryFirstSummon {
@@ -277,6 +279,7 @@ class App: AppCenterApplication {
         refreshUi()
         guard appIsBeingUsed else { return }
         thumbnailsPanel.show()
+        KeyboardEvents.toggleCommandShiftTabTap(true)
         KeyRepeatTimer.startRepeatingKeyNextWindow()
         Windows.refreshThumbnailsAsync(Windows.list, .refreshOnlyThumbnailsAfterShowUi)
     }

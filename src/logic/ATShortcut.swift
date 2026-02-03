@@ -32,6 +32,9 @@ class ATShortcut {
         }
         if let modifiers {
             let modifiersCarbon = cocoaToCarbonFlags(modifiers).cleaned()
+            // Personal-fork behavior:
+            // If "Select previous window" is set to Shift-only, don't trigger on Shift alone.
+            // Instead require Hold+Shift+Tab (e.g. Cmd+Shift+Tab for a Cmd Hold shortcut).
             let requiresHoldShiftTabBecausePreviousIsShiftOnly = self.id == "previousWindowShortcut"
                 && Preferences.previousWindowShortcut == "⇧"
                 && shortcut.keyCode == .none
@@ -49,7 +52,8 @@ class ATShortcut {
             state = newState
             // state == down is unambiguous; state == up is hard to match with a particular shortcut, unless it's been flipped
             if triggerPhase == .down && state == .down {
-                // for "previous window" bound to Shift-only, require Hold+Shift+Tab and only trigger on transition to down
+                // For Shift-only previous: require Hold+Shift+Tab and only trigger on transition to down.
+                // This avoids triggering on modifier changes alone, and keeps the action from double-firing while Tab repeats.
                 return requiresHoldShiftTabBecausePreviousIsShiftOnly ? flipped : true
             }
             if triggerPhase == .up && state == .up && flipped {

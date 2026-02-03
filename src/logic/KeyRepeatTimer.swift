@@ -8,8 +8,7 @@ class KeyRepeatTimer {
 
     static func startRepeatingKeyPreviousWindow() {
         if let shortcut = ControlsTab.shortcuts["previousWindowShortcut"],
-           // events already repeat when using a shortcut with a keycode; no need for artificial repeat
-           shortcut.shortcut.keyCode == .none {
+           PreviousWindowArtificialRepeatPolicy.shouldStartArtificialRepeat(preference: Preferences.previousWindowShortcut, shortcut: shortcut.shortcut) {
             startTimerForRepeatingKey(shortcut) {
                 App.app.previousWindowShortcutWithRepeatingKey()
             }

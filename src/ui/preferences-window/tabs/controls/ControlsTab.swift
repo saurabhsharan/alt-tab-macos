@@ -161,14 +161,15 @@ class ControlsTab {
     static func toggleNativeCommandTabIfNeeded() {
         let nativeHotkeys: [CGSSymbolicHotKey: (Shortcut) -> Bool] = [
             .commandTab: { (shortcut) in shortcut.carbonModifierFlags == cmdKey && shortcut.carbonKeyCode == kVK_Tab },
-            .commandShiftTab: { (shortcut) in CustomRecorderControlTestable.combinedModifiersMatch(shortcut.carbonModifierFlags, UInt32(cmdKey | shiftKey)) && shortcut.carbonKeyCode == kVK_Tab },
+            // command+shift+tab is only considered overlapping if explicitly bound as a global shortcut.
+            // We keep the native macOS shortcut enabled otherwise.
+            .commandShiftTab: { (shortcut) in shortcut.carbonModifierFlags == UInt32(cmdKey | shiftKey) && shortcut.carbonKeyCode == kVK_Tab },
             .commandKeyAboveTab: { (shortcut) in shortcut.carbonModifierFlags == cmdKey && shortcut.carbonKeyCode == kVK_ANSI_Grave },
         ]
-        var overlappingHotkeys = shortcuts.values.compactMap { (atShortcut) in nativeHotkeys.first { $1(atShortcut.shortcut) }?.key }
-        // if command+tab if bound, disable command+shift+tab always, to avoid confused users
-        if overlappingHotkeys.contains(.commandTab) && !overlappingHotkeys.contains(.commandShiftTab) {
-            overlappingHotkeys.append(.commandShiftTab)
-        }
+        // Only disable native hotkeys that directly overlap with our global shortcuts.
+        let overlappingHotkeys = shortcuts.values
+            .filter { $0.scope == .global }
+            .compactMap { (atShortcut) in nativeHotkeys.first { $1(atShortcut.shortcut) }?.key }
         let nonOverlappingHotkeys: [CGSSymbolicHotKey] = Array(Set(nativeHotkeys.keys).symmetricDifference(Set(overlappingHotkeys)))
         setNativeCommandTabEnabled(false, overlappingHotkeys)
         setNativeCommandTabEnabled(true, nonOverlappingHotkeys)

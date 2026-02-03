@@ -1,4 +1,5 @@
 import XCTest
+import ShortcutRecorder
 
 final class KeyboardEventsUtilsTests: XCTestCase {
     // alt-down > tab-down > tab-up > alt-up
@@ -164,14 +165,36 @@ final class KeyboardEventsUtilsTests: XCTestCase {
         XCTAssertEqual(ControlsTab.shortcutsActionsTriggered, ["nextWindowShortcut", "previousWindowShortcut"])
     }
 
+    func testCommandShiftTabInterceptionAllowsRepeatedPresses() throws {
+        resetState()
+        // This interception path is only meant for the personal-fork feature: Hold == Cmd, previous == Shift-only.
+        ControlsTab.shortcuts["holdShortcut"] = ATShortcut(Shortcut(keyEquivalent: "⌘")!, "holdShortcut", .global, .up, 0)
+        ModifierFlags.current = [.command]
+        handleKeyboardEvent(nil, nil, nil, [.command], false)
+        handleKeyboardEvent(KeyboardEventsTestable.globalShortcutsIds["nextWindowShortcut"], .down, nil, nil, false)
+        XCTAssertEqual(ControlsTab.shortcutsActionsTriggered, ["nextWindowShortcut"])
+
+        XCTAssertTrue(CommandShiftTabInterception.interceptCommandShiftTabIfNeeded(0x30, [.command, .shift], false))
+        XCTAssertTrue(CommandShiftTabInterception.interceptCommandShiftTabIfNeeded(0x30, [.command, .shift], false))
+        XCTAssertEqual(ControlsTab.shortcutsActionsTriggered, ["nextWindowShortcut", "previousWindowShortcut", "previousWindowShortcut"])
+    }
+
+    func testPreviousWindowArtificialRepeatPolicy() throws {
+        XCTAssertFalse(PreviousWindowArtificialRepeatPolicy.shouldStartArtificialRepeat(preference: "⇧", shortcut: Shortcut(keyEquivalent: "⇧")!))
+        XCTAssertTrue(PreviousWindowArtificialRepeatPolicy.shouldStartArtificialRepeat(preference: "⌃", shortcut: Shortcut(keyEquivalent: "⌃")!))
+        XCTAssertFalse(PreviousWindowArtificialRepeatPolicy.shouldStartArtificialRepeat(preference: "⌃", shortcut: Shortcut(keyEquivalent: "⌃p")!))
+    }
+
     private func resetState() {
         App.app.appIsBeingUsed = false
         App.app.shortcutIndex = 0
         for i in 0..<Preferences.shortcutStyle.count {
             Preferences.shortcutStyle[i] = .focusOnRelease
         }
+        ControlsTab.shortcuts = ControlsTab.defaultShortcuts
         ControlsTab.shortcuts.values.forEach { $0.state = .up }
         ControlsTab.shortcutsActionsTriggered = []
+        ModifierFlags.current = []
     }
 
     private let keycodeMap: [Character: UInt32] = [

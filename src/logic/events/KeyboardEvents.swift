@@ -1,4 +1,5 @@
 import Cocoa
+import Carbon.HIToolbox.Events
 import ShortcutRecorder
 
 class KeyboardEvents {
@@ -10,6 +11,8 @@ class KeyboardEvents {
     private static var hotKeyReleasedEventHandler: EventHandlerRef?
     private static var globalShortcutsAreDisabled = false
     private static var eventTap: CFMachPort?
+    private static var commandShiftTabTap: CFMachPort?
+    private static var commandShiftTabTapShouldBeEnabled = false
 
     private static let cgEventFlagsChangedHandler: CGEventTapCallBack = { _, type, cgEvent, _ in
         if type == .flagsChanged {
@@ -25,6 +28,28 @@ class KeyboardEvents {
             CGEvent.tapEnable(tap: eventTap!, enable: true)
         }
         // we always return this because we want to let these event pass through to the currently focused app
+        return Unmanaged.passUnretained(cgEvent)
+    }
+
+    private static let cgEventCommandShiftTabHandler: CGEventTapCallBack = { _, type, cgEvent, _ in
+        if type == .keyDown {
+            guard commandShiftTabTapShouldBeEnabled, App.app.appIsBeingUsed else {
+                return Unmanaged.passUnretained(cgEvent)
+            }
+            let keyCode = UInt32(cgEvent.getIntegerValueField(.keyboardEventKeycode))
+            let isARepeat = cgEvent.getIntegerValueField(.keyboardEventAutorepeat) != 0
+            let modifiers = NSEvent.ModifierFlags(rawValue: UInt(cgEvent.flags.rawValue))
+            // If we decide to swallow `Cmd+Shift+Tab`, we must also ensure AltTab remains functional on the *next* press:
+            // swallowing prevents our normal local `keyUp` processing and can leave shortcut state stuck in `.down`.
+            if CommandShiftTabInterception.interceptCommandShiftTabIfNeeded(keyCode, modifiers, isARepeat) {
+                return nil
+            }
+            return Unmanaged.passUnretained(cgEvent)
+        } else if (type == .tapDisabledByUserInput || type == .tapDisabledByTimeout), commandShiftTabTapShouldBeEnabled {
+            if let commandShiftTabTap {
+                CGEvent.tapEnable(tap: commandShiftTabTap, enable: true)
+            }
+        }
         return Unmanaged.passUnretained(cgEvent)
     }
 
@@ -54,6 +79,14 @@ class KeyboardEvents {
     static func addEventHandlers() {
         addLocalMonitorForKeyDownAndKeyUp()
         addCgEventTapForModifierFlags()
+        addCgEventTapForCommandShiftTabWhenActive()
+    }
+
+    static func toggleCommandShiftTabTap(_ enabled: Bool) {
+        commandShiftTabTapShouldBeEnabled = enabled
+        if let commandShiftTabTap {
+            CGEvent.tapEnable(tap: commandShiftTabTap, enable: enabled)
+        }
     }
 
     private static func unregisterHotKeyIfNeeded(_ controlId: String, _ shortcut: Shortcut) {
@@ -81,6 +114,25 @@ class KeyboardEvents {
         NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { (event: NSEvent) in
             let someShortcutTriggered = handleKeyboardEvent(nil, nil, event.type == .keyDown ? UInt32(event.keyCode) : nil, event.modifierFlags, event.type == .keyDown ? event.isARepeat : false)
             return someShortcutTriggered ? nil : event
+        }
+    }
+
+    private static func addCgEventTapForCommandShiftTabWhenActive() {
+        let eventMask = [CGEventType.keyDown].reduce(CGEventMask(0), { $0 | (1 << $1.rawValue) })
+        commandShiftTabTap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: eventMask,
+            callback: cgEventCommandShiftTabHandler,
+            userInfo: nil)
+        if let commandShiftTabTap {
+            CGEvent.tapEnable(tap: commandShiftTabTap, enable: commandShiftTabTapShouldBeEnabled)
+            let runLoopSource = CFMachPortCreateRunLoopSource(nil, commandShiftTabTap, 0)
+            // run on main thread so we can safely consult UI state
+            CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+        } else {
+            Logger.warning { "Could not create keyDown CGEvent tap; native command+shift+tab may appear while AltTab is open" }
         }
     }
 
