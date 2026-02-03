@@ -7,7 +7,7 @@ class AboutTab {
         appIcon.updateContents(.cgImage(App.appIcon), NSSize(width: 256, height: 256))
         appIcon.fit(256, 256)
         let appText = StackView([
-            BoldLabel(App.name),
+            BoldLabel(App.name + " (Saurabh's fork)"),
             NSTextField(wrappingLabelWithString: NSLocalizedString("Version", comment: "") + " " + App.version),
             NSTextField(wrappingLabelWithString: App.licence),
             HyperlinkLabel(NSLocalizedString("Source code repository", comment: ""), App.repository),
