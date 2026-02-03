@@ -1,4 +1,5 @@
 import Cocoa
+import Carbon.HIToolbox.Events
 import ShortcutRecorder
 
 class ATShortcut {
@@ -30,12 +31,28 @@ class ATShortcut {
             }
         }
         if let modifiers {
-            let modifiersMatch_ = modifiersMatch(cocoaToCarbonFlags(modifiers))
-            let newState: ShortcutState = ((shortcut.keyCode == .none || keyCode == shortcut.carbonKeyCode) && modifiersMatch_) ? .down : .up
+            let modifiersCarbon = cocoaToCarbonFlags(modifiers).cleaned()
+            let requiresHoldShiftTabBecausePreviousIsShiftOnly = self.id == "previousWindowShortcut"
+                && Preferences.previousWindowShortcut == "⇧"
+                && shortcut.keyCode == .none
+            let newState: ShortcutState
+            if requiresHoldShiftTabBecausePreviousIsShiftOnly {
+                let holdModifiersCleaned = ControlsTab.shortcuts[Preferences.indexToName("holdShortcut", App.app.shortcutIndex)]?.shortcut.carbonModifierFlags.cleaned() ?? 0
+                let requiredModifiers = holdModifiersCleaned | UInt32(shiftKey)
+                let isTabDown = keyCode == UInt32(kVK_Tab)
+                newState = (isTabDown && modifiersCarbon == requiredModifiers) ? .down : .up
+            } else {
+                let modifiersMatch_ = modifiersMatch(modifiersCarbon)
+                newState = ((shortcut.keyCode == .none || keyCode == shortcut.carbonKeyCode) && modifiersMatch_) ? .down : .up
+            }
             let flipped = state != newState
             state = newState
             // state == down is unambiguous; state == up is hard to match with a particular shortcut, unless it's been flipped
-            if (triggerPhase == .down && state == .down) || (triggerPhase == .up && state == .up && flipped) {
+            if triggerPhase == .down && state == .down {
+                // for "previous window" bound to Shift-only, require Hold+Shift+Tab and only trigger on transition to down
+                return requiresHoldShiftTabBecausePreviousIsShiftOnly ? flipped : true
+            }
+            if triggerPhase == .up && state == .up && flipped {
                 return true
             }
         }

@@ -145,6 +145,25 @@ final class KeyboardEventsUtilsTests: XCTestCase {
         XCTAssertEqual(ControlsTab.shortcutsActionsTriggered, ["nextWindowShortcut", "nextWindowShortcut2", "holdShortcut2"])
     }
 
+    // Ensure Shift-only "previous window" doesn't trigger on Shift alone while the hold shortcut is pressed.
+    // Instead it should require Hold+Shift+Tab.
+    func testPreviousWindowShortcutRequiresHoldShiftTabWhenSetToShift() throws {
+        resetState()
+        ModifierFlags.current = [.option]
+        handleKeyboardEvent(nil, nil, nil, [.option], false)
+        XCTAssertEqual(ControlsTab.shortcutsActionsTriggered, [])
+        handleKeyboardEvent(KeyboardEventsTestable.globalShortcutsIds["nextWindowShortcut"], .down, nil, nil, false)
+        XCTAssertEqual(ControlsTab.shortcutsActionsTriggered, ["nextWindowShortcut"])
+
+        // pressing Shift alone should not select previous
+        handleKeyboardEvent(nil, nil, nil, [.option, .shift], false)
+        XCTAssertEqual(ControlsTab.shortcutsActionsTriggered, ["nextWindowShortcut"])
+
+        // pressing Tab with Shift while Hold is pressed should select previous
+        handleKeyboardEvent(nil, nil, 0x30, [.option, .shift], false)
+        XCTAssertEqual(ControlsTab.shortcutsActionsTriggered, ["nextWindowShortcut", "previousWindowShortcut"])
+    }
+
     private func resetState() {
         App.app.appIsBeingUsed = false
         App.app.shortcutIndex = 0
