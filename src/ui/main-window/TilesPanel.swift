@@ -67,7 +67,7 @@ class TilesPanel: NSPanel {
     }
 
     override func sendEvent(_ event: NSEvent) {
-        if !Preferences.mouseHoverEnabled && ThumbnailsPanel.ignoredMouseEventTypes.contains(event.type) {
+        if !Preferences.mouseHoverEnabled && TilesPanel.ignoredMouseEventTypes.contains(event.type) {
             return
         }
         super.sendEvent(event)
